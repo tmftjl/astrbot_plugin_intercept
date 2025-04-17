@@ -1,8 +1,10 @@
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+from astrbot.api.provider import ProviderRequest
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
+import re
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
+@register("intercept", "dggb", "拦截特定消息不触发llm", "1.0.0")
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -10,15 +12,16 @@ class MyPlugin(Star):
     async def initialize(self):
         """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
     
-    # 注册消息触发器。无论用户发什么消息，都会触发这个插件。
-    @filter.message()
-    async def handle_message(self, event: AstrMessageEvent):
-        """处理所有消息，无论内容如何都回空消息"""
-        # 无论用户发送什么消息，都不会回复任何内容。
-        logger.info("Received message: " + event.message_str)  # 打印收到的消息（仅日志记录）
-        
-        # 通过 yield 返回空消息，这样用户的请求就不会收到任何回应。
-        yield event.plain_result("")  # 空消息
+    @filter.on_llm_request()
+    async def my_custom_hook_1(self, event: AstrMessageEvent, req: ProviderRequest): # 请注意有三个参数
+        message = event.message_str.strip()  # 获取并去除多余空格
+        logger.info(f"{message}")
+        # 使用正则表达式检查消息是否以 "秧秧ww"、"秧秧#" 或 "秧秧/" 开头
+        if re.match(r"^(ww|#|/|gs)", message):
+            logger.info(f"有前缀: {message}")
+            event.stop_event()  # 阻止事件继续传播
+        else:
+            logger.info(f"无前缀: {message}")
 
     async def terminate(self):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
